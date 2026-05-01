@@ -8,6 +8,13 @@ class AgileProject(Project):
         super().validate()
         if self.enable_agile:
             self.validate_agile_settings()
+            
+    def after_insert(self):
+        super().after_insert()
+        if self.enable_agile:
+            if self.custom_project_manager or self.owner:
+                self.add_project_manager_and_creator()
+                self.reload()
 
     def validate_agile_settings(self):
         """Validate agile-specific settings"""
@@ -15,6 +22,39 @@ class AgileProject(Project):
             frappe.throw(f"Workflow Scheme {self.workflow_scheme} does not exist")
         if self.permission_scheme and not frappe.db.exists("Agile Permission Scheme", self.permission_scheme):
             frappe.throw(f"Permission Scheme {self.permission_scheme} does not exist")
+            
+    def add_project_manager_and_creator(self):
+        """Ensure project manager and creator are added as project users"""
+        
+        # 1. Handle the Owner (Creator)
+        user_in_project = frappe.db.exists(
+            'Project User',
+            {'parent': self.name, 'user': self.owner}
+        )
+        
+        if not user_in_project:
+            frappe.get_doc({
+                'doctype': 'Project User',
+                'parent': self.name,
+                'parenttype': 'Project',    # <-- Added this
+                'parentfield': 'users',     # <-- Added this
+                'user': self.owner
+            }).insert(ignore_permissions=True)
+        
+        # 2. Handle the Custom Project Manager
+        if self.custom_project_manager:
+            pm_in_project = frappe.db.exists(
+                'Project User',
+                {'parent': self.name, 'user': self.custom_project_manager}
+            )
+            if not pm_in_project:
+                frappe.get_doc({
+                    'doctype': 'Project User',
+                    'parent': self.name,
+                    'parenttype': 'Project',    # <-- Added this
+                    'parentfield': 'users',     # <-- Added this
+                    'user': self.custom_project_manager
+                }).insert(ignore_permissions=True)
 
 
 # ============================================
