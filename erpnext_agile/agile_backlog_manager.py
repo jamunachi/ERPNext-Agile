@@ -14,35 +14,34 @@ class AgileBacklogManager:
     def get_backlog(self, project, filters=None):
         """Get backlog items (issues not in any sprint)"""
         
-        # 1. Safely parse the incoming JSON string
+        # 1. Parse filters smoothly without the nested acrobatics
         parsed_filters = {}
-        if isinstance(filters, str):
-            try:
-                parsed_filters = json.loads(filters) if filters.strip() else {}
-            except json.JSONDecodeError:
-                parsed_filters = {}
-        elif isinstance(filters, dict):
+        if isinstance(filters, dict):
             parsed_filters = filters
-            
-        # 2. Build our base conditions and values dictionary
+        elif isinstance(filters, str) and filters.strip():
+            try:
+                parsed_filters = json.loads(filters)
+            except json.JSONDecodeError:
+                pass # We just roll with an empty dict, no drama.
+
+        # 2. Base conditions - keeping it DRY
         conditions = [
             "project = %(project)s",
             "is_agile = 1",
             "(current_sprint IS NULL OR current_sprint = '')",
-            "status != 'Cancelled'"
+            "status NOT IN ('Cancelled', 'Closed', 'Done', 'Completed')"
         ]
         values = {"project": project}
         
-        # 3. Dynamically append user filters (like Issue Type)
-        if parsed_filters.get('issue_type'):
+        # 3. Dynamic filters using the Walrus operator (:=) for a cleaner look
+        if issue_type := parsed_filters.get('issue_type'):
             conditions.append("issue_type = %(issue_type)s")
-            values["issue_type"] = parsed_filters.get('issue_type')
+            values["issue_type"] = issue_type
             
-        # Join all conditions together safely
         where_clause = " AND ".join(conditions)
         
-        # 4. Execute the query using the dynamic where_clause and values dict
-        backlog_items = frappe.db.sql(f"""
+        # 4. Execute the query with a much cleaner CASE statement
+        return frappe.db.sql(f"""
             SELECT 
                 name, subject, issue_key, issue_type, issue_priority,
                 issue_status, story_points, parent_issue,
@@ -50,17 +49,15 @@ class AgileBacklogManager:
             FROM `tabTask`
             WHERE {where_clause}
             ORDER BY 
-                CASE 
-                    WHEN issue_priority = 'Critical' THEN 1
-                    WHEN issue_priority = 'High' THEN 2
-                    WHEN issue_priority = 'Medium' THEN 3
-                    WHEN issue_priority = 'Low' THEN 4
+                CASE issue_priority
+                    WHEN 'Critical' THEN 1
+                    WHEN 'High' THEN 2
+                    WHEN 'Medium' THEN 3
+                    WHEN 'Low' THEN 4
                     ELSE 5
                 END,
                 creation DESC
         """, values, as_dict=True)
-        
-        return backlog_items
     
     @frappe.whitelist()
     def rank_backlog_item(self, task_name, new_rank):
