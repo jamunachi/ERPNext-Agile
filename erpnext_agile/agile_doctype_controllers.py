@@ -38,6 +38,28 @@ def task_on_update(doc, method):
                 task_doc=doc,
                 queue='short'
             )
+            ## Reflection: Tasks Linked into other task's child table as dependincies were not getting updated on task update. Hence added a method to update the same.
+    sync_dependent_task_details(doc)
+        
+
+
+def sync_dependent_task_details(doc):
+    """
+    Updates the subject and status in the 'Task Depends On' child table 
+    across all parent tasks that link to this document.
+    """
+    # Note: Standard ERPNext uses 'Task Depends On' for the depends_on field.
+    # It has a 'subject' field by default. Make sure you have added 
+    # 'status' as a Custom Field in this child table for this to work.
+    
+    frappe.db.sql("""
+        UPDATE `tabTask Depends On`
+        SET 
+            subject = %s,
+            task_status = %s
+        WHERE 
+            task = %s
+    """, (doc.subject, doc.issue_status, doc.name))
 
 def task_after_insert(doc, method):
     """Actions after task insert"""

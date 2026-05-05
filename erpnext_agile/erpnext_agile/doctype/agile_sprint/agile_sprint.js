@@ -198,7 +198,8 @@ function render_complete_dialog(frm, issues) {
     if (issues.length > 0) {
         html = `
             <div style="margin-top: 15px;">
-                <p class="text-muted">${__('Select the issues you want to move. Click "Move Tasks Only" to move them now, or "Complete Sprint" to move them and close the sprint.')}</p>
+                <p class="" style="color: blue">${__('Select the issues you want to move. Click "Move Tasks Only" to move them to above selected sprint.')}</p>
+                <p class="" style="color: blue">${__('Click "Complete Sprint" to move the incomplete issues to backlog and close the sprint.')}</p>
                 <div class="table-responsive">
                     <table class="table table-bordered table-hover table-sm">
                         <thead class="bg-light">
@@ -210,6 +211,7 @@ function render_complete_dialog(frm, issues) {
                                 <th>${__('Summary')}</th>
                                 <th>${__('Status')}</th>
                                 <th>${__('Points')}</th>
+                                <th style="width: 40px; text-align: center;">${__('Actions')}</th>
                             </tr>
                         </thead>
                         <tbody id="incomplete-issues-body">
@@ -225,6 +227,11 @@ function render_complete_dialog(frm, issues) {
                                 <td>${issue.subject}</td>
                                 <td><span class="badge badge-secondary">${issue.issue_status}</span></td>
                                 <td>${issue.story_points || '-'}</td>
+                                <td style="text-align: center;">
+                                    <button class="btn btn-xs btn-default open-issue" data-issue-name="${issue.name}">
+                                        <i class="fa fa-duotone fa-link"></i>
+                                    </button>
+                                </td>
                             </tr>
             `;
         });
@@ -250,6 +257,10 @@ function render_complete_dialog(frm, issues) {
     d.$wrapper.on('change', '#select-all-issues', function() {
         let is_checked = $(this).is(':checked');
         d.$wrapper.find('.issue-checkbox').prop('checked', is_checked);
+    });
+    d.$wrapper.on('click', '.open-issue', function() {
+        let issue_name = $(this).data('issue-name');
+        frappe.set_route('Form', 'Task', issue_name);
     });
 
     d.show();
