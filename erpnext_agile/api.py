@@ -722,3 +722,34 @@ def sync_agile_issue_to_github(task_name):
     result = integration.sync_agile_issue_to_github(task_name)
     
     # Log activity
+
+@frappe.whitelist()
+def move_tasks_to_sprint(current_sprint, target_sprint, issues_to_move):
+    """
+    Moves selected issues from the current sprint to a target sprint.
+    """
+    # JS arrays are often passed as JSON strings, so we parse it safely
+    # if isinstance(issues_to_move, str):
+    issues_to_move = frappe.parse_json(issues_to_move)
+        
+    if not issues_to_move:
+        frappe.throw(frappe._("No issues provided to move."))
+        
+    if not target_sprint:
+        frappe.throw(frappe._("Target Sprint is required."))
+        
+    # Validate the target sprint exists
+    if not frappe.db.exists("Agile Sprint", target_sprint):
+        frappe.throw(frappe._("The selected target sprint ({0}) does not exist.").format(target_sprint))
+
+    
+    moved_count = 0
+    
+    for issue_name in issues_to_move:
+        frappe.db.set_value("Task", issue_name, "current_sprint", target_sprint)
+        moved_count += 1
+
+    # Commit the changes to the database
+    # frappe.db.commit()
+
+    return {"status": "success", "moved_count": moved_count}
