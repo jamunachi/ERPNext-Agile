@@ -52,7 +52,7 @@ def sync_dependent_task_details(doc):
         UPDATE `tabTask Depends On`
         SET 
             subject = %s,
-            task_status = %s
+            custom_task_status = %s
         WHERE 
             task = %s
     """, (doc.subject, doc.issue_status, doc.name))
