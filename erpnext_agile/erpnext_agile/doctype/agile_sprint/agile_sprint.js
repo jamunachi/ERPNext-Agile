@@ -199,7 +199,7 @@ function render_complete_dialog(frm, issues) {
         html = `
             <div style="margin-top: 15px;">
                 <p class="" style="color: blue">${__('Select the issues you want to move. Click "Move Tasks Only" to move them to above selected sprint.')}</p>
-                <p class="" style="color: blue">${__('Click "Complete Sprint" to move the incomplete issues to backlog and close the sprint.')}</p>
+                <p class="" style="color: blue">${__('Click "Complete Sprint" to move the incomplete tasks to backlog and close the sprint.')}</p>
                 <div class="table-responsive">
                     <table class="table table-bordered table-hover table-sm">
                         <thead class="bg-light">

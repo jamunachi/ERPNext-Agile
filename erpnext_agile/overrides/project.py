@@ -133,39 +133,39 @@ def get_task_permission_query_conditions(user):
     """
     
     # Show tasks assigned to user OR created by user
-    return f"""
-        (
-            `tabTask`.name IN (
-                SELECT parent
-                FROM `tabAssigned To Users`
-                WHERE user = {user_quoted}
-            )
-            OR `tabTask`.owner = {user_quoted}
-            OR `tabTask`.reporter = {user_quoted}
-            OR `tabTask`.custom_original_owner = {user_quoted}
-            OR `tabTask`.name IN (
-                SELECT parent
-                FROM `tabAgile Issue Watcher`
-                WHERE user = {user_quoted}
-            )
-        )
-    """
-    
-    """Alternatively, to show tasks assigned to the user or tasks in projects where the user is a project user:"""
     # return f"""
-    #     (`tabTask`.name IN (
-    #         SELECT parent
-    #         FROM `tabAssigned To Users`
-    #         WHERE user = {user_quoted}
+    #     (
+    #         `tabTask`.name IN (
+    #             SELECT parent
+    #             FROM `tabAssigned To Users`
+    #             WHERE user = {user_quoted}
     #         )
-    #     OR
-    #     `tabTask`.project IN (
-    #         SELECT parent
-    #         FROM `tabProject User`
-    #         WHERE user = {user_quoted}
+    #         OR `tabTask`.owner = {user_quoted}
+    #         OR `tabTask`.reporter = {user_quoted}
+    #         OR `tabTask`.custom_original_owner = {user_quoted}
+    #         OR `tabTask`.name IN (
+    #             SELECT parent
+    #             FROM `tabAgile Issue Watcher`
+    #             WHERE user = {user_quoted}
     #         )
     #     )
     # """
+    
+    """Alternatively, to show tasks assigned to the user or tasks in projects where the user is a project user:"""
+    return f"""
+        (`tabTask`.name IN (
+            SELECT parent
+            FROM `tabAssigned To Users`
+            WHERE user = {user_quoted}
+            )
+        OR
+        `tabTask`.project IN (
+            SELECT parent
+            FROM `tabProject User`
+            WHERE user = {user_quoted}
+            )
+        )
+    """
 
 
 def has_task_permission(doc, perm_type=None, user=None):
