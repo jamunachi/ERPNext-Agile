@@ -104,65 +104,57 @@ def has_project_permission(doc, perm_type=None, user=None):
 @frappe.whitelist()
 def get_task_permission_query_conditions(user):
     """
-    Show tasks that are either:
-    1. Assigned to the logged-in user
-    2. Created by the logged-in user (owner)
-    3. Watched by the logged-in user (Agile Issue Watcher)
-    
-    Admins and Project Managers can see everything.
+    Dynamically route permission logic based on the Task's parent Project settings.
     """
     
+    roles = frappe.get_roles(user)
     user_quoted = frappe.db.escape(user)
     
-    if "Administrator" in frappe.get_roles(user):
+    # 1. System Admins get a free pass.
+    if "Administrator" in roles:
         return ""
-    if "Projects Manager" in frappe.get_roles(user):
+        
+    # 2. Project Managers get standard visibility across their projects.
+    if "Projects Manager" in roles:
         return f"""
-        (`tabTask`.name IN (
-            SELECT parent
-            FROM `tabAssigned To Users`
-            WHERE user = {user_quoted}
+            (`tabTask`.name IN (
+                SELECT parent FROM `tabAssigned To Users` WHERE user = {user_quoted}
             )
-        OR
-        `tabTask`.project IN (
-            SELECT parent
-            FROM `tabProject User`
-            WHERE user = {user_quoted}
+            OR `tabTask`.project IN (
+                SELECT parent FROM `tabProject User` WHERE user = {user_quoted}
+            ))
+        """
+
+    # 3. Standard Users: Let SQL do the thinking based on the Project Master.
+    # We use a combined OR statement to apply the right rule based on the project's flag.
+    return f"""
+        (
+            -- SCENARIO A: Project has strict assignment visibility enabled (= 1)
+            `tabTask`.project IN (
+                SELECT name FROM `tabProject` 
+                WHERE custom_enable_assignment_based_visibility = 1
+            )
+            AND (
+                `tabTask`.name IN (SELECT parent FROM `tabAssigned To Users` WHERE user = {user_quoted})
+                OR `tabTask`.owner = {user_quoted}
+                OR `tabTask`.reporter = {user_quoted}
+                OR `tabTask`.custom_original_owner = {user_quoted}
+                OR `tabTask`.name IN (SELECT parent FROM `tabAgile Issue Watcher` WHERE user = {user_quoted})
             )
         )
-    """
-    
-    # Show tasks assigned to user OR created by user
-    # return f"""
-    #     (
-    #         `tabTask`.name IN (
-    #             SELECT parent
-    #             FROM `tabAssigned To Users`
-    #             WHERE user = {user_quoted}
-    #         )
-    #         OR `tabTask`.owner = {user_quoted}
-    #         OR `tabTask`.reporter = {user_quoted}
-    #         OR `tabTask`.custom_original_owner = {user_quoted}
-    #         OR `tabTask`.name IN (
-    #             SELECT parent
-    #             FROM `tabAgile Issue Watcher`
-    #             WHERE user = {user_quoted}
-    #         )
-    #     )
-    # """
-    
-    """Alternatively, to show tasks assigned to the user or tasks in projects where the user is a project user:"""
-    return f"""
-        (`tabTask`.name IN (
-            SELECT parent
-            FROM `tabAssigned To Users`
-            WHERE user = {user_quoted}
-            )
         OR
-        `tabTask`.project IN (
-            SELECT parent
-            FROM `tabProject User`
-            WHERE user = {user_quoted}
+        (
+            -- SCENARIO B: Project has it disabled (= 0), OR the Task has no project at all
+            (
+                `tabTask`.project IS NULL 
+                OR `tabTask`.project IN (
+                    SELECT name FROM `tabProject` 
+                    WHERE IFNULL(custom_enable_assignment_based_visibility, 0) = 0
+                )
+            )
+            AND (
+                `tabTask`.name IN (SELECT parent FROM `tabAssigned To Users` WHERE user = {user_quoted})
+                OR `tabTask`.project IN (SELECT parent FROM `tabProject User` WHERE user = {user_quoted})
             )
         )
     """
